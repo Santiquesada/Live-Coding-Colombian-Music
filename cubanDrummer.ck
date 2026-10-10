@@ -51,7 +51,6 @@ public class cubanDrummer
                     if (MyNote == 26) { me.dir() + "/Samples/Cuban/TCP_Osain_Bata_Itotele_3.wav" => filename; 0.1 * MyGain * 0.5 => Sample.gain;}
                     if (MyNote == 27) { me.dir() + "/Samples/Cuban/TCP_Osain_Bata_Okonkolo_1.wav" => filename; 0.1 * MyGain * 0.5 => Sample.gain;}
                     if (MyNote == 28) { me.dir() + "/Samples/Cuban/TCP_Osain_Bata_Okonkolo_2.wav" => filename; 0.1 * MyGain * 0.5 => Sample.gain;}
-                    if (MyNote == 29) { me.dir() + "/Samples/Cuban/TCP_Yesa_Bata_Iya_1.wav" => filename; 0.1 * MyGain * 0.5 => Sample.gain;}
                     if (MyNote == 30) { me.dir() + "/Samples/Cuban/TCP_Yesa_Bata_Itotele_1.wav" => filename; 0.1 * MyGain * 0.5 => Sample.gain;}
                     if (MyNote == 31) { me.dir() + "/Samples/Cuban/TCP_Yesa_Bata_Itotele_2.wav" => filename; 0.1 * MyGain * 0.5 => Sample.gain;}
                     if (MyNote == 32) { me.dir() + "/Samples/Cuban/TCP_Yesa_Bata_Itotele_3.wav" => filename; 0.1 * MyGain * 0.5 => Sample.gain;}
