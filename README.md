@@ -61,8 +61,9 @@ Some pieces use additional classes not loaded by `Library.ck` (e.g. `Rhythms.ck`
 - **ChAR** — a Transformer jazz melody generator running in ChucK (`ChAR-*.ck`,
   `ChARMel.ck`, `ChARMar.ck`).
 
-> Note: the Chonnx chugin and the currulao models are not yet published; the `ai/`
-> pieces expect them in a sibling `Chonnx_Training/` folder.
+> The `ai/` currulao pieces require [Chonnx](https://github.com/Santiquesada/Chonnx).
+> Models and training scripts are in that repository; locally, the pieces expect
+> them in a sibling `Chonnx_Training/` folder.
 
 ## Author
 

@@ -1,33 +1,33 @@
 // CurrulaoGRU.ck
-// Generador de currulao usando Chonnx (CurrulaoGRU)
-// Entrenado sobre transcripciones de Baudilio Cuama y Marino Beltran
-// (libro Arrullos y Currulaos)
+// Currulao generator using Chonnx (CurrulaoGRU)
+// Trained on transcriptions by Baudilio Cuama and Marino Beltran
+// (book "Arrullos y Currulaos")
 //
-// El modelo aprende P(frase_siguiente | ultimas 4 frases y sus estados)
-// La GRU recuerda el arco de frases anterior:
-//   G->G->G->G se comporta diferente a B->F->G->H
-//   aunque el ultimo paso sea el mismo.
+// The model learns P(next_phrase | last 4 phrases and their states)
+// The GRU remembers the arc of previous phrases:
+//   G->G->G->G behaves differently from B->F->G->H
+//   even when the last step is the same.
 //
-// Diferencia vs CurrulaoAI.ck (MLP):
-//   MLP ve:  [estado_actual, frase_anterior]        (2 entradas)
-//   GRU ve:  [estado_t-4, frase_t-4, ..., estado_t-1, frase_t-1]  (8 entradas)
+// Difference vs CurrulaoAI.ck (MLP):
+//   MLP sees: [current_state, previous_phrase]                    (2 inputs)
+//   GRU sees: [state_t-4, phrase_t-4, ..., state_t-1, phrase_t-1]  (8 inputs)
 
 Machine.add(me.dir() + "../Phrasing.ck");
 Machine.add(me.dir() + "../MarimbaTimes.ck");
 
-// === PARAMETROS ===
-0.20  => float Beat;     // duracion de una corchea en segundos (~94 BPM en 6/8)
-60    => int  OFFSET;    // nota raiz: 60 = Do central
-0     => int  ESTADO;    // estado inicial: 0 = Tonica, 1 = Dominante
-2.5   => float TEMP;     // temperatura: 1.0=modelo puro, >1=mas variedad, <1=mas seguro
+// === PARAMETERS ===
+0.26  => float Beat;     // duration of an eighth note in seconds
+60    => int  OFFSET;    // root note: 60 = middle C
+0     => int  STATE;     // initial state: 0 = tonic, 1 = dominant
+2.5   => float TEMP;     // temperature: 1.0 = pure model, >1 = more variety, <1 = safer
 // ==================
 
-// --- Campo armonico ---
-[OFFSET-5, OFFSET, OFFSET+4, OFFSET+7, OFFSET+12, OFFSET+16] @=> int ONotes[];
-[OFFSET-5, OFFSET-1, OFFSET+2, OFFSET+5, OFFSET+7, OFFSET+12, OFFSET+14] @=> int INotes[];
+// --- Harmonic field ---
+[OFFSET-5, OFFSET, OFFSET+4, OFFSET+7, OFFSET+12, OFFSET+16] @=> int ONotes[];             // tonic
+[OFFSET-5, OFFSET-1, OFFSET+2, OFFSET+5, OFFSET+7, OFFSET+12, OFFSET+14] @=> int INotes[]; // dominant
 
-// === Vocabulario de frases ===
-fun int[] frase(int idx) {
+// === Phrase vocabulary ===
+fun int[] phrase(int idx) {
     if (idx == 0) return [1,0,0,1,0,0];
     if (idx == 1) return [1,0,0,1,0,1];
     if (idx == 2) return [1,0,1,1,0,1];
@@ -40,65 +40,65 @@ fun int[] frase(int idx) {
     else          return [-1,0,1,-1,0,1,-1,0,1,-1,0,1];
 }
 
-fun int[] asignarNotas(int patron[], int estado) {
-    int resultado[patron.size()];
-    for (0 => int i; i < patron.size(); i++) {
-        if (patron[i] == 1) {
-            if (estado == 0) {
+fun int[] assignNotes(int pattern[], int state) {
+    int result[pattern.size()];
+    for (0 => int i; i < pattern.size(); i++) {
+        if (pattern[i] == 1) {
+            if (state == 0) {
                 Math.random2(0, ONotes.size()-1) => int r;
-                ONotes[r] => resultado[i];
+                ONotes[r] => result[i];
             } else {
                 Math.random2(0, INotes.size()-1) => int r;
-                INotes[r] => resultado[i];
+                INotes[r] => result[i];
             }
         } else {
-            patron[i] => resultado[i];
+            pattern[i] => result[i];
         }
     }
-    return resultado;
+    return result;
 }
 
 // === Chonnx — CurrulaoGRU ===
 Chonnx brain;
 brain.load_model(me.dir() + "../../Chonnx_Training/currulao_gru.onnx");
 
-// === Historial de las ultimas 4 frases ===
-// Se actualiza despues de cada prediccion
-int historial[4];
-6 => historial[0];   // inicializar con G (frase mas comun)
-6 => historial[1];
-6 => historial[2];
-6 => historial[3];
+// === History of the last 4 phrases ===
+// Updated after every prediction
+int history[4];
+6 => history[0];   // initialize with G (most common phrase)
+6 => history[1];
+6 => history[2];
+6 => history[3];
 
-// === Muestreo proporcional desde las 10 probabilidades ===
-// Input GRU: 8 valores = 4 timesteps x [frase/9.0, estado]
-// Orden: mas antiguo primero (historial[0] -> historial[3])
+// === Proportional sampling from the 10 probabilities ===
+// GRU input: 8 values = 4 timesteps x [phrase/9.0, state]
+// Order: oldest first (history[0] -> history[3])
 //
-// Como el estado siempre alterna, si ESTADO_ACTUAL = E:
-//   t-4 -> E     (4 pasos atras, numero par de alternaciones)
+// Since the state always alternates, if CURRENT_STATE = E:
+//   t-4 -> E     (4 steps back, even number of alternations)
 //   t-3 -> E^1
 //   t-2 -> E
 //   t-1 -> E^1
-fun int muestrear(int estado_actual) {
-    // Calcular estado de cada paso del historial
-    // historial[0] = t-4 -> mismo estado que el actual (par)
-    // historial[1] = t-3 -> estado contrario
-    // historial[2] = t-2 -> mismo estado
-    // historial[3] = t-1 -> estado contrario
-    int est[4];
-    estado_actual     => est[0];
-    1 - estado_actual => est[1];
-    estado_actual     => est[2];
-    1 - estado_actual => est[3];
+fun int sampleNext(int currentState) {
+    // State of each step in the history
+    // history[0] = t-4 -> same state as current (even)
+    // history[1] = t-3 -> opposite state
+    // history[2] = t-2 -> same state
+    // history[3] = t-1 -> opposite state
+    int st[4];
+    currentState     => st[0];
+    1 - currentState => st[1];
+    currentState     => st[2];
+    1 - currentState => st[3];
 
-    // Llenar los 8 inputs del modelo
+    // Fill the model's 8 inputs
     for (0 => int i; i < 4; i++) {
-        brain.set_input(i*2,     historial[i] / 9.0);
-        brain.set_input(i*2 + 1, est[i] * 1.0);
+        brain.set_input(i*2,     history[i] / 9.0);
+        brain.set_input(i*2 + 1, st[i] * 1.0);
     }
     brain.run();
 
-    // Temperature scaling: p^(1/T) aplana la distribucion cuando T > 1
+    // Temperature scaling: p^(1/T) flattens the distribution when T > 1
     float acc[10];
     0.0 => float total;
     for (0 => int i; i < 10; i++) {
@@ -113,16 +113,16 @@ fun int muestrear(int estado_actual) {
     return 6;  // fallback: G
 }
 
-// === Actualizar historial (shift + nuevo valor) ===
-fun void actualizarHistorial(int nueva_frase) {
-    // shift: historial[0]<-[1], [1]<-[2], [2]<-[3], [3]<-nueva_frase
+// === Update history (shift + new value) ===
+fun void pushHistory(int newPhrase) {
+    // shift: history[0]<-[1], [1]<-[2], [2]<-[3], [3]<-newPhrase
     for (0 => int i; i < 3; i++) {
-        historial[i+1] => historial[i];
+        history[i+1] => history[i];
     }
-    nueva_frase => historial[3];
+    newPhrase => history[3];
 }
 
-// === Percusion ===
+// === Percussion ===
 SndBuf bombo => Gain bomboGain => dac;
 me.dir() + "../Samples/BomboMadera.wav" => bombo.read;
 0.8 => bomboGain.gain;
@@ -155,42 +155,42 @@ fun void cununoLoop() {
 spork ~ bomboLoop();
 spork ~ cununoLoop();
 
-// === Sintesis: dos voces de marimba ===
+// === Synthesis: two marimba voices ===
 MarimbaTimes rh;
 MarimbaTimes lh;
 
-// === Bucle principal ===
-string nombres[10];
-"A" => nombres[0]; "B" => nombres[1]; "C" => nombres[2];
-"D" => nombres[3]; "E" => nombres[4]; "F" => nombres[5];
-"G" => nombres[6]; "H" => nombres[7]; "I" => nombres[8]; "J" => nombres[9];
+// === Main loop ===
+string names[10];
+"A" => names[0]; "B" => names[1]; "C" => names[2];
+"D" => names[3]; "E" => names[4]; "F" => names[5];
+"G" => names[6]; "H" => names[7]; "I" => names[8]; "J" => names[9];
 
 <<< "=== CurrulaoGRU ===" >>>;
-<<< "Estado inicial:", (ESTADO == 0 ? "Tonica" : "Dominante") >>>;
-<<< "Historial inicial: G G G G" >>>;
+<<< "Initial state:", (STATE == 0 ? "Tonic" : "Dominant") >>>;
+<<< "Initial history: G G G G" >>>;
 
 while (true) {
-    // Predecir siguiente frase con la GRU
-    muestrear(ESTADO) => int siguiente;
+    // Predict the next phrase with the GRU
+    sampleNext(STATE) => int nextPhrase;
 
-    // Mostrar historial -> siguiente
-    <<< (ESTADO == 0 ? "T" : "D"),
-        "  [", nombres[historial[0]], nombres[historial[1]],
-               nombres[historial[2]], nombres[historial[3]], "]",
-        "->", nombres[siguiente] >>>;
+    // Show history -> next
+    <<< (STATE == 0 ? "T" : "D"),
+        "  [", names[history[0]], names[history[1]],
+               names[history[2]], names[history[3]], "]",
+        "->", names[nextPhrase] >>>;
 
-    // Actualizar historial
-    actualizarHistorial(siguiente);
+    // Update history
+    pushHistory(nextPhrase);
 
-    // Construir notas para RH y LH
-    frase(siguiente) @=> int patron[];
-    asignarNotas(patron, ESTADO) @=> int RH[];
-    asignarNotas(patron, ESTADO) @=> int LH[];
+    // Build notes for RH and LH
+    phrase(nextPhrase) @=> int pattern[];
+    assignNotes(pattern, STATE) @=> int RH[];
+    assignNotes(pattern, STATE) @=> int LH[];
 
-    // Tocar
+    // Play
     spork ~ rh.play(Beat, 10, 1, RH);
     lh.play(Beat, 8, 1, LH);
 
-    // Alternar estado armonico
-    1 - ESTADO => ESTADO;
+    // Alternate harmonic state
+    1 - STATE => STATE;
 }
