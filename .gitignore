@@ -1,0 +1,14 @@
+# Local cleanup folders (not part of the repo)
+_to_delete/
+_to_move/
+_cleanup_log.txt
+
+# TouchDesigner autosaves / crash dumps
+Backup/
+CrashAutoSave*
+*.dmp
+imgui.ini
+
+# Model training artifacts
+*.pt
+*.pkl

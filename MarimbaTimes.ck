@@ -1,6 +1,6 @@
 public class MarimbaTimes
 {
-    me.dir() + "/Samples/MarimbaenDo.wav" => string filename;
+    me.dir() + "/Samples/MarimbaenDO.wav" => string filename;
     SndBuf Marimba=>dac;
      fun float transpose(int semitones)
     {
@@ -33,22 +33,36 @@ public class MarimbaTimes
        s.definingBeat(Notes,Beat,percentage,type)@=>float finalBeats[];
         
       
+      0.0 => float elapsed;   // tiempo acumulado dentro del compas
+
       for(0=>int i;i<finalNotes.size();i++)
       {
           if (finalNotes[i]>0)
           {
           finalNotes[i]-60=>int tones;
-          
+
           transpose(tones)=>Marimba.rate;
-         
+
            filename=>  Marimba.read;
         0=>Marimba.pos;
-        Math.random2f(0.6,0.9)=>Marimba.gain;
+
+        // Acentos: 6ta fuerte, 4ta medio, 2da semicorchea del 1er pulso medio, resto suave
+        if (elapsed >= Beat * 4.9)
+            Math.random2f(0.85, 1.0) => Marimba.gain;   // 6ta corchea: fuerte
+        else if (elapsed >= Beat * 2.9 && elapsed < Beat * 4.0)
+            Math.random2f(0.65, 0.8) => Marimba.gain;   // 4ta corchea: medio
+        else if (elapsed >= Beat * 0.4 && elapsed < Beat * 1.0)
+            Math.random2f(0.65, 0.8) => Marimba.gain;   // 2da semicorchea del 1er pulso: medio
+        else
+            Math.random2f(0.4, 0.65) => Marimba.gain;   // resto: suave
+
                finalBeats[i]::second=>now;
           }
-          else 
-              finalBeats[i]::second=>now; 
-            
+          else
+              finalBeats[i]::second=>now;
+
+          finalBeats[i] +=> elapsed;
+
       }
   
         

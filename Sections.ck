@@ -38,7 +38,7 @@ while( true )
               <<<"section A", me.id()>>>;
              
              s.cycle(8,Beat); 
-            Machine.add(me.dir() + "Section A.ck");
+            Machine.add(me.dir() + "pieces/Section A.ck");
              
           }
      else  if (msg.ascii==32 && flag==1) 
@@ -47,7 +47,7 @@ while( true )
     
               <<<"section B">>>; 
          
-              Machine.add(me.dir() + "Section B.ck");
+              Machine.add(me.dir() + "pieces/Section B.ck");
                             
           }
               }

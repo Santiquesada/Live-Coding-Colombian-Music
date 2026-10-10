@@ -39,7 +39,7 @@ Event @ us[128];
 Gain g => JCRev r => dac;
 .1 => g.gain;
 .02 => r.mix;
- me.dir() + "/Samples/MarimbaenDo.wav" => string filename;
+ me.dir() + "/Samples/MarimbaenDO.wav" => string filename;
   fun float transpose(int semitones)
     {
           1.05946309435929=>float semitone;
