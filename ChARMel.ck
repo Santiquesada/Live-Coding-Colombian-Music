@@ -83,7 +83,7 @@ public class ChARMel
 
                 if (pitch > 0) {
                     Std.mtof(pitch) => mel.freq;
-                    vel*0.6 => mel.noteOn;                }
+                    vel => mel.noteOn;                }
                 (dur_s * 0.85)::second => now;
                 if (pitch > 0) 0.5 => mel.noteOff;
                 (dur_s * 0.15)::second => now;
